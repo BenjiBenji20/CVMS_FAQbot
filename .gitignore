@@ -1,0 +1,9 @@
+venv/
+.env
+__pycache__/
+*.pyc
+# temporary
+documents
+# vector db
+chroma_db/
+api/chroma_db/

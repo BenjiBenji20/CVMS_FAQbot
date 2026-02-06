@@ -1,0 +1,14 @@
+{
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "api/main.py"
+        },
+        {
+            "handle": "filesystem"
+        }
+    ],
+    "env": {
+        "PYTHON_VERSION": "3.11"
+    }
+}
