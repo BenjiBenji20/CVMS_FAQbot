@@ -9,7 +9,6 @@ langchain_community
 langchain_text_splitters
 groq
 langchain_chroma
-gradio
 pypdf
 
 # utils
