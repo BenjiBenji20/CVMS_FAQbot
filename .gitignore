@@ -7,3 +7,5 @@ __pycache__/
 # vector db
 chroma_db/
 api/chroma_db/
+.vercel
+.env*.local
