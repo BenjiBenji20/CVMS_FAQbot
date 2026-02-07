@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str
     LLM_NAME: str
     
+    DEV_ORIGIN: str
+    PROD_ORIGIN: str
+    
     class Config:
         env_file = ".env"
         extra = "ignore"

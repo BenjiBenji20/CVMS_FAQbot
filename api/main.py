@@ -1,11 +1,22 @@
 from fastapi import FastAPI
+from api.config.settings import settings
 from api.routes.chatbot_router import chatbot_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="FAQs Chatbot for CVMS Website",
     description="Stateless chatbot to answer FAQs efficiently and autonomously",
     version="0.1"
 )
+
+# CORS Configuration - Allow request from frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.DEV_ORIGIN, settings.PROD_ORIGIN],
+    allow_credentials=True,
+    allow_methods=["*"], # GET, POST, PUT, DELETE, OPTIONS
+    allow_headers=["*"],  # Allows all headers
+  )
 
 app.include_router(chatbot_router)
 
