@@ -10,7 +10,7 @@ retriever = vector_store.as_retriever(search_kwargs={'k': 5})
 
 def chatbot(message: str) -> str:
     """
-    Build LLM prompt along with user's query and extracted knowledge 
+    Build LLM prompt along with client's query and extracted knowledge 
     using the retriever.
     
     Args:
@@ -29,20 +29,32 @@ def chatbot(message: str) -> str:
     messages = [
         {
             "role": "system",
-            "content": """You are a helpful assistant that answers questions based on provided knowledge.
-            You rely solely on the information in the knowledge section provided to you.
-            Answer naturally without mentioning that you're using provided knowledge."""
+            "content": (
+                "You are an AI assistant for Colour Variant Multimedia Services.\n\n"
+                "STRICT RULES:\n"
+                "- You MUST answer using ONLY the information provided in the context.\n"
+                "- EXCEPTION: If the user greets you (e.g., Hi, Hello, Good day), you may respond with a polite greeting "
+                "without using the context.\n"
+                "- Use at most one emoji, only if appropriate.\n"
+                "- Keep answers short and clear.\n"
+                "- Do NOT use general knowledge.\n"
+                "- Do NOT guess, assume, or fabricate information.\n"
+                "- If the user asks a question and the answer is NOT explicitly stated in the context, respond with:\n"
+                "\"I'm sorry, I couldn't find this information in our official documents. "
+                "Please contact us via at cvmscustomerservice@gmail.com or visit our office for further assistance.\""
+            )
         },
         {
             "role": "user",
-            "content": f"""Based on the following knowledge, please answer the question.
-
-            Knowledge:
-            {knowledge}
-
-            Question: {message}"""
+            "content": (
+                "CONTEXT:\n"
+                f"{knowledge}\n\n"
+                "QUESTION:\n"
+                f"{message}"
+            )
         }
     ]
+
     
     # Stream the response using Groq's streaming API
     stream = llm.chat.completions.create(
