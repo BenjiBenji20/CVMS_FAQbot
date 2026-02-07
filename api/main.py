@@ -26,12 +26,12 @@ async def root():
     return {
         "message": "Welcome to Chatbot API",
         "endpoints": {
-            "health_check": "/api/chatbot/",
-            "test_connection": "/api/chatbot/test-connection"
+            "health_check": "/api/chat-ai/health-check",
+            "chatbot_route": "/api/chat-ai/chat"
         }
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
     
