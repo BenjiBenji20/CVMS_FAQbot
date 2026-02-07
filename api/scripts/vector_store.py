@@ -33,8 +33,8 @@ raw_doc = loader.load()
 
 # configure doc text splitter
 doc_text_splitter =  RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=100,
+    chunk_size=300,
+    chunk_overlap=50,
     length_function=len,
     is_separator_regex=False,
     separators=["\n\n", "\n", ". ", " ", ""]  # Try paragraph, then sentence, then word breaks
