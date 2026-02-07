@@ -24,7 +24,6 @@ A context-aware chatbot that automates FAQs for the CVMS website using Retrieval
 - [Testing](#testing)
 - [Environment Variables](#environment-variables)
 - [Contributing](#contributing)
-- [License](#license)
 
 ---
 
@@ -351,14 +350,6 @@ Contributions are welcome! Please follow these steps:
 - Follow PEP 8 style guide
 - Update documentation for API changes
 - Add docstrings to functions
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgments
 
