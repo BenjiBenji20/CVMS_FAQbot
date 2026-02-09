@@ -1,24 +1,16 @@
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from datetime import datetime, timezone
 import asyncio
 import logging
 
-from api.scripts.chatbot import retriever, chatbot
+from api.config.settings import settings
+from api.scripts.chatbot import retriever
+from api.schemas.chatbot_schemas import *
+from api.services.chatbot_service import chatbot_service
 
 logger = logging.getLogger(__name__)
 
 chatbot_router = APIRouter(prefix="/api/chat-ai", tags=["chatbot"])
-
-# Request/Response Models
-class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, description="User's message")
-
-class ChatResponse(BaseModel):
-    role: str
-    message: str
-    created_at: datetime
-
 
 @chatbot_router.get("/health-check")
 async def health_check():
@@ -43,48 +35,32 @@ async def health_check():
         }
 
 
+async def verify_request_key(request_secret_key: str = Header(None)):
+    """Verify the request secret key"""
+    if request_secret_key != settings.REQUEST_SECRET_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid request"
+        )
+
+
 @chatbot_router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(
+    chat_request: ChatRequest,
+    _: None = Depends(verify_request_key)  # hash secret key dependency
+):
     """
     Chat endpoint - returns complete response from chatbot
     """
     try:
-        # Call chatbot function with retry logic
-        ai_response: str = ""
-        max_attempts = 3
-        message: str = request.message.strip()
-        
-        # if the message is only whitespace and has been strpped
-        # make synthetic message.
-        if message is None or message == "":
-            return ChatResponse(
-                role="assistant",
-                message="It looks like the question didn’t come through. Could you please provide the question you’d like answered?",
-                created_at=datetime.now(timezone.utc)
-            )
-            
-        for attempt in range(1, max_attempts + 1):
-            try:
-                # run chatbot in thread 
-                ai_response = await asyncio.to_thread(chatbot, message)
-                
-                # Validate response
-                if ai_response and len(ai_response.strip()) > 0:
-                    break
-                    
-                logger.warning(f"Empty response on attempt {attempt}")
-                
-            except Exception as e:
-                logger.error(f"Attempt {attempt} failed: {str(e)}")
-                if attempt == max_attempts:
-                    raise
-                await asyncio.sleep(1)  # Brief delay before retry
-        
-        if not ai_response or len(ai_response.strip()) == 0:
+        # if filled, the request likely made by bot 
+        if chat_request.honeypot:
             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to get valid response from chatbot after 3 attempts"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid request"
             )
+        
+        ai_response = await chatbot_service.get_chat_response(chat_request.message)
         
         return ChatResponse(
             role="assistant",
@@ -95,7 +71,7 @@ async def chat(request: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Chat bot endpoint error: {str(e)}")
+        logger.exception(f"Chat endpoint error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while processing chat request"
