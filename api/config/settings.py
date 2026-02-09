@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     DEV_ORIGIN: str
     PROD_ORIGIN: str
     
+    REQUEST_SECRET_KEY: str | None = None
+    
     class Config:
         env_file = ".env"
         extra = "ignore"
