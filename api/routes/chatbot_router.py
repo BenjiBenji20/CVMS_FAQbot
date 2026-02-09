@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from datetime import datetime, timezone
 import asyncio
 import logging
@@ -11,9 +15,12 @@ from api.services.chatbot_service import chatbot_service
 logger = logging.getLogger(__name__)
 
 chatbot_router = APIRouter(prefix="/api/chat-ai", tags=["chatbot"])
+limiter = Limiter(key_func=get_remote_address)
+
 
 @chatbot_router.get("/health-check")
-async def health_check():
+@limiter.limit("15/minute")
+async def health_check(request: Request):
     """
     Check if the chatbot service is healthy
     """
@@ -45,7 +52,9 @@ async def verify_request_key(request_secret_key: str = Header(None)):
 
 
 @chatbot_router.post("/chat", response_model=ChatResponse)
+@limiter.limit("10/minute")
 async def chat(
+    request: Request,
     chat_request: ChatRequest,
     _: None = Depends(verify_request_key)  # hash secret key dependency
 ):

@@ -17,3 +17,6 @@ python-dotenv
 # testing
 pytest 
 pytest-asyncio
+
+# security
+slowapi
