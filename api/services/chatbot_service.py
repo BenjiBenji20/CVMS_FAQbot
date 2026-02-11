@@ -1,7 +1,9 @@
 import asyncio
 import logging
 from typing import Optional
+import redis
 
+from api.config.settings import settings
 from api.scripts.chatbot import chatbot
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,7 @@ class ChatbotService:
     def __init__(self):
         self.max_attempts: int = 3
         self.retry_delay: float = 1.0
+        self.redis_client = redis.from_url(settings.get_redis_client_uri())
     
     
     async def get_chat_response(self, message: str) -> str:
@@ -32,6 +35,18 @@ class ChatbotService:
         if not message or message.isspace():
             return self._get_empty_message_response()
         
+        # Normalize message for cache key (case-insensitive, no punctuation)
+        cache_key = self._normalize_cache_key(message)
+        
+        # checks if faqs as key value pair (quest and answer pair) exists in redis db
+        # if exists, return it immediately, not let embeddings and augmentation process inside the script
+        try:
+            cached_response = self.redis_client.get(cache_key)
+            if cached_response:
+                return cached_response 
+        except redis.RedisError as e:
+            logger.warning(f"Redis error during cache check: {e}. Proceeding without cache.")
+        
         # Retry logic
         ai_response = ""
         last_error = None
@@ -44,6 +59,17 @@ class ChatbotService:
                 # Validate response
                 if self._is_valid_response(ai_response):
                     logger.info(f"Successfully got response on attempt {attempt}")
+                    
+                    # store new response as value and message is the key
+                    try:
+                        self.redis_client.setex(
+                            name=cache_key,
+                            time=172800,  # 2 days expiration
+                            value=ai_response
+                        )
+                        logger.info(f"Cached response for: {message}")
+                    except redis.RedisError as e:
+                        logger.warning(f"Redis error during cache set: {e}")
                     return ai_response
                 
                 logger.warning(f"Empty response on attempt {attempt}/{self.max_attempts}")
@@ -64,6 +90,18 @@ class ChatbotService:
         raise Exception(
             f"Chatbot returned empty responses after {self.max_attempts} attempts"
         )
+    
+    
+    @staticmethod
+    def _normalize_cache_key(message: str) -> str:
+        """
+        Normalize message for consistent caching
+        
+        Removes punctuation, converts to lowercase
+        """
+        # Remove trailing punctuation and convert to lowercase
+        normalized = message.lower().strip().rstrip('?!.,;:')
+        return f"faq:{normalized}"  # Prefix for organization
     
     
     @staticmethod
