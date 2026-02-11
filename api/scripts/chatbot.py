@@ -1,12 +1,18 @@
 from api.config.settings import settings
 from api.scripts.vector_store import vector_store
 from groq import Groq
+import json
 
 # Initialize Groq client
 llm = Groq(api_key=settings.LLM_API_KEY)
 
 # Set up vector store as retriever
-retriever = vector_store.as_retriever(search_kwargs={'k': 5})
+retriever = vector_store.as_retriever(
+    search_kwargs={
+        'k': 5,
+        'filter': {'doc_type': 'faq'}  # Only search FAQs
+    }
+)
 
 def chatbot(message: str) -> str:
     """
@@ -20,10 +26,16 @@ def chatbot(message: str) -> str:
         str: Partial responses as they're generated
     """
     # Retrieve relevant chunks
-    docs = retriever.invoke(message)
+    docs = retriever.vectorstore.similarity_search_with_score(message, k=5)
+    
+    # Filter by relevance threshold
+    relevant_docs = [
+        doc for doc, score in docs
+        if score < 0.7
+    ]
     
     # Build knowledge base
-    knowledge = "\n\n".join([doc.page_content for doc in docs])
+    knowledge = "\n\n".join([doc.page_content for doc in relevant_docs])
     
     # Build messages for Groq
     messages = [
