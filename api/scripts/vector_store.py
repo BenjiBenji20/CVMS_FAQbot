@@ -1,5 +1,6 @@
 from uuid import uuid4
 from pathlib import Path
+from datetime import datetime
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
@@ -29,7 +30,7 @@ vector_store = Chroma(
 loader = PyPDFDirectoryLoader(str(DOCS_DIR))
 
 # raw document
-raw_doc = loader.load()
+raw_docs = loader.load()
 
 # configure doc text splitter
 doc_text_splitter =  RecursiveCharacterTextSplitter(
@@ -41,7 +42,19 @@ doc_text_splitter =  RecursiveCharacterTextSplitter(
 )
 
 # chunks the raw documents based on splitter configuration
-chunks = doc_text_splitter.split_documents(raw_doc)
+chunks = doc_text_splitter.split_documents(raw_docs)
+
+# create metadata for each chunk
+for i, c in enumerate(chunks):
+    c.metadata.update({
+        "chunk_id": str(uuid4()),
+        "source": c.metadata.get("source", "unknown"),
+        "page": c.metadata.get("page", 0),
+        "index": i,
+        "total": len(chunks),
+        "doc_type": "faq",
+        "added_date": datetime.now().isoformat()
+    })
 
 # create ids for every chunks of documents
 uuids = [str(uuid4()) for _ in range(len(chunks))]
