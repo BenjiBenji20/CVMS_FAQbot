@@ -1,7 +1,7 @@
+import statistics
 from api.config.settings import settings
 from api.scripts.vector_store import vector_store
 from groq import Groq
-import json
 
 # Initialize Groq client
 llm = Groq(api_key=settings.LLM_API_KEY)
@@ -14,8 +14,12 @@ retriever = vector_store.as_retriever(
     }
 )
 
+FALLBACK_MESSAGE = (
+    "I'm sorry, I couldn't find this information in our official documents. "
+    "Please contact us via at cvmscustomerservice@gmail.com or visit our office for further assistance."
+)
 
-def llm_message_rephraser( original_message: str) -> str:
+def llm_message_rephraser(original_message: str) -> str:
     """
     Rephrase original message into more effective semantic search
     """
@@ -27,7 +31,10 @@ def llm_message_rephraser( original_message: str) -> str:
                 "Your task is to rewrite informal, shorthand, or vague user messages into a clearer and "
                 "retrieval-friendly search query.\n\n"
                 "STRICT RULES:\n"
+                "- If the spelling is wrong, correct it."
                 "- Interpret Philippine common marketplace shorthands (e.g., hm = how much, loc = location, etc...).\n"
+                "- If its not in full English language, translate it into English." 
+                " The output MUST be written in grammatically correct English.\n"
                 "- Preserve the original intent.\n"
                 "- Preserve important nouns or service-related words if present.\n"
                 "- Expand vague or short phrases into a complete search query.\n"
@@ -74,7 +81,7 @@ def stream_response(messages: list[dict[str, str]], temperature: float = 0.5) ->
     return response
 
 
-def chatbot(message: str, to_rephrase: bool = False) -> tuple[str, list[float]]:
+def chatbot(message: str, to_rephrase: bool = False) -> str:
     """
     Build LLM prompt along with client's query and extracted knowledge 
     using the retriever.
@@ -88,23 +95,24 @@ def chatbot(message: str, to_rephrase: bool = False) -> tuple[str, list[float]]:
     # Retrieve relevant chunks
     docs = retriever.vectorstore.similarity_search_with_score(message, k=5)
     
-    # Filter by relevance threshold
-    relevant_docs = [
-        doc for doc, score in docs
-        if score < 0.7
-    ]
+    # Get all scores
+    all_scores = [score for _, score in docs]
     
-    relevant_scores = [
-        score for _, score in docs
-        if score < 0.7
-    ]
+    # Filter by relevance threshold
+    relevant_docs = [doc for doc, score in docs if score < 0.7]
+    
+    relevant_scores = [score for _, score in docs if score < 0.7]
+    
+    # Calculate quality metrics
+    has_relevant_docs = len(relevant_scores) > 0
+    avg_score = statistics.mean(all_scores) if all_scores else 1.0
+    
+    # Decide if docs are good enough
+    is_high_quality = has_relevant_docs and avg_score < 0.7 
     
     # if already done rephrase and still doesn't have relevant scores, return fallback
-    if to_rephrase and len(relevant_scores) < 1:
-        return (
-                "I'm sorry, I couldn't find this information in our official documents. "
-                "Please contact us via at cvmscustomerservice@gmail.com or visit our office for further assistance.\""
-            ), []
+    if to_rephrase and not is_high_quality:
+        return FALLBACK_MESSAGE, []
     
     # Build knowledge base
     knowledge = "\n\n".join([doc.page_content for doc in relevant_docs])
@@ -115,17 +123,24 @@ def chatbot(message: str, to_rephrase: bool = False) -> tuple[str, list[float]]:
             "role": "system",
             "content": (
                 "You are an AI assistant for Colour Variant Multimedia Services.\n\n"
+
                 "STRICT RULES:\n"
-                "- You MUST answer using ONLY the information provided in the context.\n"
-                "- EXCEPTION: If the user greets you (e.g., Hi, Hello, Good day), you may respond with a polite greeting "
-                "without using the context.\n"
-                "- Use at most one emoji, only if appropriate.\n"
+                "1. You MUST answer using ONLY the information explicitly provided in the context.\n"
+                "2. You MUST NOT use general knowledge.\n"
+                "3. You MUST NOT guess, assume, infer, or fabricate information.\n"
+                "4. If the answer is NOT explicitly stated in the context, you MUST respond EXACTLY with:\n"
+                f"\"{FALLBACK_MESSAGE}\"\n"
+                "5. Greeting Exception:\n"
+                "- If the user message is ONLY a greeting (e.g., Hi, Hello, Good day), "
+                "you may respond with a polite greeting without using the context.\n"
+                "- If the message contains both a greeting and a question, follow Rules 1–4.\n"
+                "6. Language Rule:\n"
+                "- You MUST respond in the same language or dialect used by the user.\n"
+                "- You MUST NOT translate or modify domain-specific keywords "
+                "(e.g., keep 'consultation' as 'consultation' if it appears in the context).\n"
+                "7. Response Style:\n"
                 "- Keep answers short and clear.\n"
-                "- Do NOT use general knowledge.\n"
-                "- Do NOT guess, assume, or fabricate information.\n"
-                "- If the user asks a question and the answer is NOT explicitly stated in the context, respond with:\n"
-                "\"I'm sorry, I couldn't find this information in our official documents. "
-                "Please contact us via at cvmscustomerservice@gmail.com or visit our office for further assistance.\""
+                "- Use at most one emoji, only if appropriate.\n"
             )
         },
         {
@@ -139,4 +154,4 @@ def chatbot(message: str, to_rephrase: bool = False) -> tuple[str, list[float]]:
         }
     ]
     
-    return stream_response(messages), relevant_scores
+    return stream_response(messages)
