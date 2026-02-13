@@ -35,10 +35,6 @@ class ChatbotService:
         if not message or message.isspace():
             return self._get_empty_message_response()
         
-        # Handle greetings early (skip retrieval)
-        if self._is_greeting(message):
-            return "Hello! 👋 How can I assist you with information about CVMS today?"
-        
         # Normalize message for cache key (case-insensitive, no punctuation)
         cache_key = self._normalize_cache_key(message)
         
@@ -58,30 +54,37 @@ class ChatbotService:
         for attempt in range(1, self.max_attempts + 1):
             try:
                 # Call chatbot function in thread (it's blocking)
-                ai_response, scores = await asyncio.to_thread(chatbot, message)
-
-                # If no relevant docs found, rephrase and retry
-                if len(scores) < 1:
+                ai_response = await asyncio.to_thread(chatbot, message)
+                
+                # If fallback message exists in initial ai_response, rephrase
+                CORE_FALLBACK = "cvmscustomerservice@gmail.com"
+                if CORE_FALLBACK in ai_response.lower() and not message.startswith("REPHRASED:"):
+                    logger.info("LLM couldn't answer. Rephrasing query...")
                     rephrased_message = await asyncio.to_thread(llm_message_rephraser, message)
                     
                     # request again with to_rephrase = True signaling that this is a second 
                     # semantic search with rephrased message
-                    ai_response, _ = await asyncio.to_thread(chatbot, rephrased_message, True)
+                    ai_response = await asyncio.to_thread(
+                            chatbot, f"REPHRASE: {rephrased_message}", True
+                        )
 
                 # Validate response
                 if self._is_valid_response(ai_response):
                     logger.info(f"Successfully got response on attempt {attempt}")
                     
-                    # store new response as value and message is the key
-                    try:
-                        self.redis_client.setex(
-                            name=cache_key,
-                            time=172800,  # 2 days expiration
-                            value=ai_response
-                        )
-                        logger.info(f"Cached response for: {message}")
-                    except redis.RedisError as e:
-                        logger.warning(f"Redis error during cache set: {e}")
+                    # Don't cache fallback
+                    if CORE_FALLBACK not in ai_response.lower():
+                        # store new response as value and message is the key
+                        try:
+                            self.redis_client.setex(
+                                name=cache_key,
+                                time=172800,  # 2 days expiration
+                                value=ai_response
+                            )
+                            logger.info(f"Cached response for: {message}")
+                        except redis.RedisError as e:
+                            logger.warning(f"Redis error during cache set: {e}")
+                            
                     return ai_response
                 
                 logger.warning(f"Empty response on attempt {attempt}/{self.max_attempts}")
@@ -112,13 +115,6 @@ class ChatbotService:
         # Remove trailing punctuation and convert to lowercase
         normalized = message.lower().strip().rstrip('?!.,;:')
         return f"faq:{normalized}"  # Prefix for organization
-    
-    
-    def _is_greeting(self, message: str) -> bool:
-        """Check if message is a greeting"""
-        greetings = ['hi', 'hello', 'hey', 'good morning', 'good day', 'good afternoon', 'good evening']
-        message_lower = message.lower().strip()
-        return any(greeting in message_lower for greeting in greetings)
     
     
     def _is_valid_response(self, response: Optional[str]) -> bool:
