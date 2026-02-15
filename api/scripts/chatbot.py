@@ -112,7 +112,7 @@ def chatbot(message: str, to_rephrase: bool = False) -> str:
     
     # if already done rephrase and still doesn't have relevant scores, return fallback
     if to_rephrase and not is_high_quality:
-        return FALLBACK_MESSAGE, []
+        return FALLBACK_MESSAGE
     
     # Build knowledge base
     knowledge = "\n\n".join([doc.page_content for doc in relevant_docs])
