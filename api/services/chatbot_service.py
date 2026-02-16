@@ -1,7 +1,11 @@
 import asyncio
+from collections import defaultdict
+from datetime import datetime, timedelta
 import logging
 from typing import Optional
+from fastapi import WebSocket
 import redis
+import uuid
 
 from api.config.settings import settings
 from api.scripts.chatbot import chatbot, llm_message_rephraser
@@ -15,8 +19,117 @@ class ChatbotService:
     def __init__(self):
         self.max_attempts: int = 3
         self.retry_delay: float = 1.0
-        self.redis_client = redis.from_url(settings.get_redis_client_uri())
+        # redis client (upstash)
+        self.redis_client = redis.from_url(
+            settings.get_redis_client_uri(),
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5
+        )
+        
+        # Rate limiting tracking
+        self.message_counts: dict[str, list[datetime]] = defaultdict(list)
+        self.rate_limit_window = 60  # seconds
+        self.rate_limit_max = 10  # messages per window
+        self.active_connections: dict[str, WebSocket] = {}
     
+    
+    async def check_rate_limit(self, session_id: str) -> tuple[bool, int, int]:
+        """
+        Check rate limit using Redis
+        
+        Returns:
+            (is_allowed, remaining_quota, retry_after_seconds)
+        """
+        rate_limit_key = f"ws_rate_limit:{session_id}"
+        
+        try:
+            # Get current count from Redis
+            current_count = self.redis_client.get(rate_limit_key)
+            current_count = int(current_count) if current_count else 0
+            
+            # Check if limit exceeded
+            if current_count >= self.rate_limit_max:
+                ttl = self.redis_client.ttl(rate_limit_key)
+                retry_after = ttl if ttl > 0 else self.rate_limit_window
+                logger.warning(f"Rate limit exceeded for session {session_id}")
+                return False, 0, retry_after
+            
+            # Increment counter and set/refresh expiry
+            pipe = self.redis_client.pipeline()
+            pipe.incr(rate_limit_key)
+            pipe.expire(rate_limit_key, self.rate_limit_window)
+            pipe.execute()
+            
+            remaining = self.rate_limit_max - current_count - 1
+            return True, remaining, 0
+            
+        except redis.RedisError as e:
+            logger.error(f"Redis rate limit check failed: {e}. Allowing request.")
+            # Fail open - allow request if Redis is down
+            return True, self.rate_limit_max, 0
+        
+    
+    async def get_rate_limit_info(self, session_id: str) -> dict:
+        """
+        Get current rate limit status for a session
+        """
+        rate_limit_key = f"ws_rate_limit:{session_id}"
+        
+        try:
+            current_count = self.redis_client.get(rate_limit_key)
+            current_count = int(current_count) if current_count else 0
+            ttl = self.redis_client.ttl(rate_limit_key)
+            
+            return {
+                "limit": self.rate_limit_max,
+                "remaining": max(0, self.rate_limit_max - current_count),
+                "reset_in": ttl if ttl > 0 else self.rate_limit_window,
+                "window": self.rate_limit_window
+            }
+        except redis.RedisError as e:
+            logger.error(f"Failed to get rate limit info: {e}")
+            return {
+                "limit": self.rate_limit_max,
+                "remaining": self.rate_limit_max,
+                "reset_in": self.rate_limit_window,
+                "window": self.rate_limit_window
+            }
+    
+    
+    async def connect_ws(self, ws: WebSocket) -> str:
+        """accept connection and return temporary session id"""
+        await ws.accept()
+        session_id = str(uuid.uuid4())
+        self.active_connections[session_id] = ws
+        logger.info(f"Client connected: {session_id}")
+        return session_id
+
+    
+    async def disconnect_ws(self, session_id: str):
+        """Unregister websocket connection and cleanup Redis data"""
+        if session_id in self.active_connections:
+            del self.active_connections[session_id]
+            logger.info(f"Client disconnected: {session_id}")
+        
+        # Cleanup rate limit data from Redis
+        try:
+            rate_limit_key = f"ws_rate_limit:{session_id}"
+            self.redis_client.delete(rate_limit_key)
+            logger.info(f"Cleaned up Redis data for session: {session_id}")
+        except redis.RedisError as e:
+            logger.warning(f"Failed to cleanup Redis data: {e}")
+            
+            
+    async def send_to_client(self, session_id: str, data: dict):
+        """Send message to specific client"""
+        ws = self.active_connections.get(session_id)
+        if ws:
+            try:
+                await ws.send_json(data)
+            except Exception as e:
+                logger.error(f"Failed to send message to {session_id}: {e}")
+
     
     async def get_chat_response(self, message: str) -> str:
         """
