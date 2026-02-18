@@ -1,7 +1,10 @@
+import re
 import statistics
+from typing import List, Tuple
 from api.config.settings import settings
 from api.scripts.vector_store import vector_store
 from groq import Groq
+from langchain_core.documents import Document
 
 # Initialize Groq client
 llm = Groq(api_key=settings.LLM_API_KEY)
@@ -9,7 +12,7 @@ llm = Groq(api_key=settings.LLM_API_KEY)
 # Set up vector store as retriever
 retriever = vector_store.as_retriever(
     search_kwargs={
-        'k': 5,
+        'k': 8,
         'filter': {'doc_type': 'faq'}  # Only search FAQs
     }
 )
@@ -81,26 +84,26 @@ def stream_response(messages: list[dict[str, str]], temperature: float = 0.5) ->
     return response
 
 
-def chatbot(message: str, to_rephrase: bool = False) -> str:
+def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
     """
     Build LLM prompt along with client's query and extracted knowledge 
     using the retriever.
     
     Args:
         message: User's question
+        to_rephrase: Whether this is a rephrased attempt
     
     Yields:
-        str: Partial responses as they're generated
+        Tuple of (response_text, list of action dicts)
     """
     # Retrieve relevant chunks
-    docs = retriever.vectorstore.similarity_search_with_score(message, k=5)
+    docs = retriever.vectorstore.similarity_search_with_score(message, k=8)
     
     # Get all scores
     all_scores = [score for _, score in docs]
     
     # Filter by relevance threshold
     relevant_docs = [doc for doc, score in docs if score < 0.7]
-    
     relevant_scores = [score for _, score in docs if score < 0.7]
     
     # Calculate quality metrics
@@ -112,10 +115,30 @@ def chatbot(message: str, to_rephrase: bool = False) -> str:
     
     # if already done rephrase and still doesn't have relevant scores, return fallback
     if to_rephrase and not is_high_quality:
-        return FALLBACK_MESSAGE
+        return FALLBACK_MESSAGE, []
     
     # Build knowledge base
-    knowledge = "\n\n".join([doc.page_content for doc in relevant_docs])
+    knowledge_docs = []
+    action_docs = []
+    
+    for doc in relevant_docs:
+        if doc.metadata.get("type") == 'action':
+            action_docs.append(doc)
+        else:
+            knowledge_docs.append(doc)
+            
+    # Limit actions to max 3
+    action_docs = action_docs[:3]
+    
+    # Build knowledge base
+    knowledge = "\n\n".join([doc.page_content for doc in knowledge_docs])
+    
+    # Build actions context
+    actions_context = ""
+    if action_docs:
+        actions_context = "\n\nYOU CAN VIEW THE PAGE HERE (mention if relevant)\n"
+        for action_doc in action_docs:
+            actions_context += f"{action_doc.page_content}\n"
     
     # Build messages for Groq
     messages = [
@@ -123,7 +146,6 @@ def chatbot(message: str, to_rephrase: bool = False) -> str:
             "role": "system",
             "content": (
                 "You are an AI assistant for Colour Variant Multimedia Services.\n\n"
-
                 "STRICT RULES:\n"
                 "1. You MUST answer using ONLY the information explicitly provided in the context.\n"
                 "2. You MUST NOT use general knowledge.\n"
@@ -141,6 +163,16 @@ def chatbot(message: str, to_rephrase: bool = False) -> str:
                 "7. Response Style:\n"
                 "- Keep answers short and clear.\n"
                 "- Use at most one emoji, only if appropriate.\n"
+                "8. Page Link / Button Suggestion Rule:\n"
+                "- The frontend automatically converts valid action markers into clickable buttons.\n"
+                "- Mention relevant page names naturally in the sentence."
+                "- Do NOT use phrases that imply a clickable link (e.g., 'click here', 'dito', 'here', arrows, or pointing language).\n"
+                "- Do NOT embed URLs directly in the text.\n"
+                "- If a page/action is highly relevant, add the marker exactly as:\n"
+                "[LINK:action-id]\n"
+                "- Place the marker on a new line at the end.\n"
+                "- Do NOT add words before or after the marker.\n"
+                "- You may include up to 3 markers.\n"
             )
         },
         {
@@ -148,10 +180,40 @@ def chatbot(message: str, to_rephrase: bool = False) -> str:
             "content": (
                 "CONTEXT:\n"
                 f"{knowledge}\n\n"
+                f"{actions_context}\n"
                 "QUESTION:\n"
                 f"{message}"
             )
         }
     ]
     
-    return stream_response(messages)
+    response_text = stream_response(messages)
+    
+    # Extract [LINK:id] markers and build actions list
+    actions = extract_link_markers(response_text, action_docs)
+    
+    # Remove [LINK:id] markers from response text
+    clean_text = re.sub(r'\[LINK:[^\]]+\]', '', response_text).strip()
+    
+    return clean_text, actions
+    
+    
+def extract_link_markers(text: str, action_docs: list[Document]) -> List[dict]:
+    """Extract [LINK:id] markers and return action dicts"""
+    pattern = r'\[LINK:([^\]]+)\]'
+    found_ids = re.findall(pattern, text)
+    
+    actions = []
+    for link_id in found_ids[:3]:  # Max 3 links
+        for action_doc in action_docs:
+            if action_doc.metadata.get('action_id') == link_id:
+                actions.append({
+                    'id': action_doc.metadata['action_id'],
+                    'title': action_doc.metadata['title'],
+                    'url': action_doc.metadata['url'],
+                    'button_text': action_doc.metadata['button_text']
+                })
+                break
+    
+    return actions
+
