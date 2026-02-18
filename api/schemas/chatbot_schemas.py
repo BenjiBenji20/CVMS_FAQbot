@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 import re
@@ -26,10 +27,18 @@ class ChatRequest(BaseModel):
             v = v.rstrip('?!.,;:')
 
         return v
-
     
+
+class ActionLink(BaseModel):
+    id: str
+    title: str
+    url: str
+    button_text: str
+
 
 class ChatResponse(BaseModel):
     role: str
     message: str
     created_at: datetime
+    actions: List[ActionLink] = []
+    
