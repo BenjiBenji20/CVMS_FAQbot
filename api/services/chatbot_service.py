@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import Optional
 import redis
@@ -33,7 +34,7 @@ class ChatbotService:
         """
         # Handle edge case: empty message after strip
         if not message or message.isspace():
-            return self._get_empty_message_response()
+            return self._get_empty_message_response(), []
         
         # Normalize message for cache key (case-insensitive, no punctuation)
         cache_key = self._normalize_cache_key(message)
@@ -41,20 +42,23 @@ class ChatbotService:
         # checks if faqs as key value pair (quest and answer pair) exists in redis db
         # if exists, return it immediately, not let embeddings and augmentation process inside the script
         try:
-            cached_response = self.redis_client.get(cache_key)
-            if cached_response:
-                return cached_response 
+            cached_data = self.redis_client.get(cache_key)
+            if cached_data:
+                logger.info(f"Cache hit for: {message[:50]}...")
+                parsed = json.loads(cached_data)
+                return parsed['message'], parsed.get('actions', [])
         except redis.RedisError as e:
             logger.warning(f"Redis error during cache check: {e}. Proceeding without cache.")
         
         # Retry logic
         ai_response = ""
+        actions = []
         last_error = None
         
         for attempt in range(1, self.max_attempts + 1):
             try:
                 # Call chatbot function in thread (it's blocking)
-                ai_response = await asyncio.to_thread(chatbot, message)
+                ai_response, actions = await asyncio.to_thread(chatbot, message)
                 
                 # If fallback message exists in initial ai_response, rephrase
                 CORE_FALLBACK = "cvmscustomerservice@gmail.com"
@@ -64,7 +68,7 @@ class ChatbotService:
                     
                     # request again with to_rephrase = True signaling that this is a second 
                     # semantic search with rephrased message
-                    ai_response = await asyncio.to_thread(
+                    ai_response, actions = await asyncio.to_thread(
                             chatbot, f"REPHRASE: {rephrased_message}", True
                         )
 
@@ -76,16 +80,20 @@ class ChatbotService:
                     if CORE_FALLBACK not in ai_response.lower():
                         # store new response as value and message is the key
                         try:
+                            cache_data = json.dumps({
+                                'message': ai_response,
+                                'actions': actions
+                            })
                             self.redis_client.setex(
                                 name=cache_key,
                                 time=172800,  # 2 days expiration
-                                value=ai_response
+                                value=cache_data
                             )
                             logger.info(f"Cached response for: {message}")
                         except redis.RedisError as e:
                             logger.warning(f"Redis error during cache set: {e}")
                             
-                    return ai_response
+                    return ai_response, actions
                 
                 logger.warning(f"Empty response on attempt {attempt}/{self.max_attempts}")
                 
