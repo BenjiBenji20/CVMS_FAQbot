@@ -1,0 +1,342 @@
+[
+  {
+    "id": "home-page",
+    "intent": [
+      "home",
+      "main page",
+      "welcome",
+      "cvms",
+      "colour variant"
+    ],
+    "title": "Colour Variant Home",
+    "url": "https://cvms-website.vercel.app/",
+    "description": "The main landing page with a brief welcome, overview of services, and highlights of recent work.",
+    "category": "General",
+    "priority": 15,
+    "button_text": "Home Page"
+  },
+  {
+    "id": "portfolio-main",
+    "intent": [
+      "portfolio",
+      "gallery",
+      "see our work",
+      "previous works",
+      "samples",
+      "examples"
+    ],
+    "title": "All Projects Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio",
+    "description": "Browse our complete collection of photo and video work across weddings, events, products, portraits, and more.",
+    "category": "Portfolio",
+    "priority": 13,
+    "button_text": "View Portfolio"
+  },
+  {
+    "id": "portfolio-page-wedding",
+    "intent": [
+      "wedding",
+      "wedding portfolio",
+      "wedding gallery",
+      "wedding photos",
+      "wedding video",
+      "past weddings",
+      "wedding examples"
+    ],
+    "title": "Wedding Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/wedding",
+    "description": "Gallery of completed wedding photo and video projects with beautiful moments from real celebrations.",
+    "category": "Portfolio",
+    "priority": 14,
+    "button_text": "View Wedding Portfolio"
+  },
+  {
+    "id": "portfolio-page-prenup",
+    "intent": [
+      "prenup",
+      "prenup shoot",
+      "prenuptial",
+      "save the date",
+      "prenup gallery",
+      "pre-wedding photos"
+    ],
+    "title": "Prenup & Save-the-Date Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/prenup",
+    "description": "Collection of romantic prenuptial and save-the-date photo and video shoots.",
+    "category": "Portfolio",
+    "priority": 13,
+    "button_text": "View Prenup Portfolio"
+  },
+  {
+    "id": "portfolio-page-debut",
+    "intent": [
+      "debut",
+      "18th birthday",
+      "debutante",
+      "debut gallery",
+      "debut video"
+    ],
+    "title": "Debut Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/debuts",
+    "description": "Highlights from elegant debutante celebrations and 18th birthday events.",
+    "category": "Portfolio",
+    "priority": 12,
+    "button_text": "View Debut Portfolio"
+  },
+  {
+    "id": "portfolio-page-corporate",
+    "intent": [
+      "corporate",
+      "corporate event",
+      "company event",
+      "corporate documentation",
+      "corporate gallery"
+    ],
+    "title": "Corporate Events Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/corporate",
+    "description": "Professional coverage of seminars, conferences, team buildings, and brand events.",
+    "category": "Portfolio",
+    "priority": 11,
+    "button_text": "View Corp Portfolio"
+  },
+  {
+    "id": "portfolio-page-event-production",
+    "intent": [
+      "event production",
+      "event production portfolio",
+      "produced events",
+      "hosted events gallery",
+      "event management examples",
+      "full event coverage"
+    ],
+    "title": "Event Production Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/event-production",
+    "description": "Showcases full event production work including planning, coordination, scriptwriting, hosting, sound/lighting, LED walls, and live feeds from various celebrations.",
+    "category": "Portfolio",
+    "priority": 10,
+    "button_text": "View Event Production Portfolio"
+  },
+  {
+    "id": "portfolio-page-school-events",
+    "intent": [
+      "school event",
+      "school program",
+      "graduation",
+      "js prom",
+      "school activity photos",
+      "school event coverage",
+      "recognition day"
+    ],
+    "title": "School Events Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/school-events",
+    "description": "Gallery of school-related events such as JS Proms, recognition days, graduations, intramurals, and other academic celebrations captured professionally.",
+    "category": "Portfolio",
+    "priority": 9,
+    "button_text": "View School Events Portfolio"
+  },
+  {
+    "id": "portfolio-page-birthday",
+    "intent": [
+      "birthday",
+      "birthday party",
+      "kiddie party",
+      "birthday celebration",
+      "kids birthday photos",
+      "adult birthday coverage"
+    ],
+    "title": "Birthday Celebrations Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/birthday",
+    "description": "Highlights from birthday parties, including kiddie celebrations, surprise events, and milestone adult birthdays with creative photo and video coverage.",
+    "category": "Portfolio",
+    "priority": 9,
+    "button_text": "View Birthday Portfolio"
+  },
+  {
+    "id": "portfolio-page-portrait-shoots",
+    "intent": [
+      "portrait",
+      "portrait photography",
+      "headshot",
+      "personal portrait",
+      "family portrait",
+      "individual shoot"
+    ],
+    "title": "Portrait Shoots Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/portrait-shoots",
+    "description": "Collection of individual, family, and professional portrait photography sessions with artistic lighting and creative direction.",
+    "category": "Portfolio",
+    "priority": 8,
+    "button_text": "View Portrait Portfolio"
+  },
+  {
+    "id": "portfolio-page-travel-photography",
+    "intent": [
+      "travel photography",
+      "travel photos",
+      "destination shoot",
+      "outdoor adventure",
+      "travel videography",
+      "lifestyle travel"
+    ],
+    "title": "Travel Photography Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/travel-photography",
+    "description": "Stunning travel and lifestyle shoots featuring scenic locations, adventures, and on-location creative captures.",
+    "category": "Portfolio",
+    "priority": 8,
+    "button_text": "View Travel Photography Portfolio"
+  },
+  {
+    "id": "portfolio-page-product-photoshoot",
+    "intent": [
+      "product shoot",
+      "product photography",
+      "product photo",
+      "commercial product",
+      "e-commerce photography",
+      "brand product shoot"
+    ],
+    "title": "Product & Commercial Shoots Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/product-photoshoot",
+    "description": "Professional product photography and videography for brands, e-commerce, commercials, and EXDEAL collaborations with clean, high-quality visuals.",
+    "category": "Portfolio",
+    "priority": 10,
+    "button_text": "View Product Photoshoot Portfolio"
+  },
+  {
+    "id": "portfolio-page-videos",
+    "intent": [
+      "video portfolio",
+      "video examples",
+      "video reel",
+      "cinematic video",
+      "video highlights",
+      "drone video",
+      "event video"
+    ],
+    "title": "Video Highlights & Reels Portfolio",
+    "url": "https://cvms-website.vercel.app/portfolio/videos",
+    "description": "Show reel of cinematic videos, event highlights, teasers, same-day edits, and full-length productions across all event types.",
+    "category": "Portfolio",
+    "priority": 11,
+    "button_text": "View Videos Portfolio"
+  },
+  {
+    "id": "services-page",
+    "intent": [
+      "services",
+      "what do you offer",
+      "packages",
+      "photo video services",
+      "event services"
+    ],
+    "title": "Our Services",
+    "url": "https://cvms-website.vercel.app/services",
+    "description": "Complete list of photo, video, event production, rentals, and venue buildout services offered.",
+    "category": "Services",
+    "priority": 14,
+    "button_text": "View Services Page"
+  },
+  {
+    "id": "about-page",
+    "intent": [
+      "about",
+      "who are you",
+      "company story",
+      "history",
+      "started when",
+      "rebranded"
+    ],
+    "title": "About Colour Variant",
+    "url": "https://cvms-website.vercel.app/about",
+    "description": "Learn about our journey, mission, and team behind Colour Variant Multimedia Services.",
+    "category": "About",
+    "priority": 12,
+    "button_text": "View About Page"
+  },
+  {
+    "id": "contact-page",
+    "intent": [
+      "contact",
+      "phone number",
+      "location",
+      "reach us",
+      "talk to you",
+      "message"
+    ],
+    "title": "Contact Us",
+    "url": "https://cvms-website.vercel.app/contact",
+    "description": "Get in touch via phone, Messenger, Instagram, email or visit details.",
+    "category": "Contact",
+    "priority": 15,
+    "button_text": "View Contact Page"
+  },
+  {
+    "id": "booking-page",
+    "intent": [
+      "book",
+      "booking",
+      "reserve",
+      "avail",
+      "available date",
+      "dates",
+      "quote",
+      "how to book",
+      "request quote",
+      "schedule"
+    ],
+    "title": "Book an Event / Get a Quote",
+    "url": "https://cvms-website.vercel.app/booking",
+    "description": "Submit event details to check availability, to show calendar of event, get pricing, and reserve your date.",
+    "category": "Booking",
+    "priority": 15,
+    "button_text": "View Booking Page"
+  },
+  {
+    "id": "instagram-main",
+    "intent": [
+      "instagram",
+      "ig",
+      "insta",
+      "follow on instagram",
+      "colour_variant"
+    ],
+    "title": "Instagram (@colour_variant)",
+    "url": "https://www.instagram.com/colour_variant",
+    "description": "Latest reels, behind-the-scenes, and recent projects on our Instagram.",
+    "category": "Socials",
+    "priority": 13,
+    "button_text": "Open Instagram"
+  },
+  {
+    "id": "facebook-main",
+    "intent": [
+      "facebook",
+      "fb",
+      "facebook page",
+      "messenger"
+    ],
+    "title": "Facebook / Messenger",
+    "url": "https://www.facebook.com/colourvariant",
+    "description": "Message us directly on Facebook or browse event highlights.",
+    "category": "Socials",
+    "priority": 12,
+    "button_text": "Open Facebook"
+  },
+  {
+    "id": "youtube-main",
+    "intent": [
+      "youtube",
+      "yt",
+      "youtube channel",
+      "videos",
+      "vlogs",
+      "follow on youtube"
+    ],
+    "title": "Youtube Channel",
+    "url": "https://www.youtube.com/@COLOUR_VARIANT",
+    "description": "Follow us and watch our latest videos.",
+    "category": "Socials",
+    "priority": 11,
+    "button_text": "Open YouTube"
+  }
+]
