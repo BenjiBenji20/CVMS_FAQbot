@@ -1,11 +1,12 @@
+import json
 from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_community.document_loaders import PyPDFDirectoryLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain_core.documents import Document
 
 from api.config.settings import settings
 
@@ -26,41 +27,93 @@ vector_store = Chroma(
     persist_directory=str(PERSISTENT_CHROMADB)
 )
 
-# load the pdf docs
-loader = PyPDFDirectoryLoader(str(DOCS_DIR))
+# load the mardown file
+def load_markdown_files() -> list[Document]:
+    """Load and chunk markdown files by headers"""
+    md_splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[
+            ("#", "Header 1"),
+            ("##", "Header 2"),
+            ("###", "Header 3"),
+        ]
+    )
+    
+    chunks = []
+    
+    for md_file in DOCS_DIR.glob("*.md"):
+        with open(md_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        # split by headers
+        md_chunks = md_splitter.split_text(content)
+        
+        # add metadata
+        for chunk in md_chunks:
+            chunk.metadata.update({
+                "chunk_id": str(uuid4()),
+                "source": md_file.name,
+                "doc_type": "faq",
+                "type": "knowledge",
+                "added_date": datetime.now().isoformat()
+            })
+            
+        chunks.extend(md_chunks)
+            
+    return chunks
 
-# raw document
-raw_docs = loader.load()
+def load_json_files() -> list[Document]:
+    """Load data from JSON and convert to embeddable documents"""
+    json_files = DOCS_DIR / "cvms-structured-data.json"
+    
+    if not json_files.exists():
+        return []
+    
+    with open(json_files, 'r', encoding='utf-8') as f:
+        json_list = json.load(f)
+        
+        structured_json_docs = []
+        
+        for j in json_list:
+            # create embeddable text
+            keywords = ', '.join(j.get('intent', []))
+            text = f"""[ACTION:{j['id']}]
+                    Title: {j['title']}
+                    Description: {j['description']}
+                    Keywords: {keywords}
+                    Category: {j.get('category', 'General')}
+                    """
+                    
+            # create the document
+            doc = Document(
+                page_content=text,
+                metadata={
+                    'chunk_id': str(uuid4()),
+                    'type': 'action',
+                    'doc_type': 'faq',
+                    'action_id': j['id'],
+                    'url': j['url'],
+                    'title': j['title'],
+                    'button_text': j['button_text'],
+                    'source': 'cvms-structured-data.json',
+                    'added_date': datetime.now().isoformat()
+                }
+            )
+            structured_json_docs.append(doc)
+        
+    return structured_json_docs
 
-# configure doc text splitter
-doc_text_splitter =  RecursiveCharacterTextSplitter(
-    chunk_size=300,
-    chunk_overlap=50,
-    length_function=len,
-    is_separator_regex=False,
-    separators=["\n\n", "\n", ". ", " ", ""]  # Try paragraph, then sentence, then word breaks
-)
+# Load and index documents
+# Load MD files
+md_chunks = load_markdown_files()
 
-# chunks the raw documents based on splitter configuration
-chunks = doc_text_splitter.split_documents(raw_docs)
+# Load actions and links in json 
+action_chunks = load_json_files()
 
-# create metadata for each chunk
-for i, c in enumerate(chunks):
-    c.metadata.update({
-        "chunk_id": str(uuid4()),
-        "source": c.metadata.get("source", "unknown"),
-        "page": c.metadata.get("page", 0),
-        "index": i,
-        "total": len(chunks),
-        "doc_type": "faq",
-        "added_date": datetime.now().isoformat()
-    })
+# Combine
+all_docs = md_chunks + action_chunks
 
-# create ids for every chunks of documents
-uuids = [str(uuid4()) for _ in range(len(chunks))]
+# Create UUIDs
+uuids = [str(uuid4()) for _ in range(len(all_docs))]
 
-# store the chunks in vector/memory
-vector_store.add_documents(
-    documents=chunks,
-    ids=uuids
-)
+# Store in vector DB
+vector_store.add_documents(documents=all_docs, ids=uuids)
