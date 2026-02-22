@@ -61,7 +61,7 @@ class ChatbotService:
                 ai_response, actions = await asyncio.to_thread(chatbot, message)
                 
                 # If fallback message exists in initial ai_response, rephrase
-                CORE_FALLBACK = "cvmscustomerservice@gmail.com"
+                CORE_FALLBACK = "facebook messenger"
                 if CORE_FALLBACK in ai_response.lower() and not message.startswith("REPHRASED:"):
                     logger.info("LLM couldn't answer. Rephrasing query...")
                     rephrased_message = await asyncio.to_thread(llm_message_rephraser, message)
@@ -86,7 +86,7 @@ class ChatbotService:
                             })
                             self.redis_client.setex(
                                 name=cache_key,
-                                time=172800,  # 2 days expiration
+                                time=604800,  # 7 days expiration
                                 value=cache_data
                             )
                             logger.info(f"Cached response for: {message}")
