@@ -49,6 +49,43 @@ async def verify_request_key(request_secret_key: str = Header(None)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid request"
         )
+        
+        
+@chatbot_router.post("/chat-react", response_model=ChatReactResponse)
+@limiter.limit("20/minute")
+async def chat_react(
+    request: Request,
+    react_req: ChatReactRequest
+):
+    """
+    Send react request (like or dislike) to the chat.
+    Remove redis cache entry if dislike.
+    param: react_req.user_query: user chat. Use to get redis cached key entry
+    param: react_req.is_like: True (like) False (dislike)
+    return: ChatReactResponse
+    """
+    try:
+        result = await chatbot_service.chat_react(
+            user_query=react_req.user_query.strip(),
+            is_like=react_req.is_like
+        )
+        
+        return ChatReactResponse(**result)
+    
+    except ValueError as e:
+        # Cache key not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Chat react error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process reaction"
+        )
 
 
 @chatbot_router.post("/chat", response_model=ChatResponse)

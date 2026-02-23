@@ -119,6 +119,100 @@ class ChatbotService:
         )
     
     
+    async def chat_react(self, user_query: str, is_like: bool = True) -> dict:
+        """
+        Handle like/dislike reaction for cached responses.
+        Deletes cache if dislikes >= 3 OR dislikes > likes.
+        
+        Args:
+            user_query: Original user question
+            is_like: True for like, False for dislike
+            
+        Returns:
+            dict with status and counts
+            
+        Raises:
+            ValueError: If cache key not found
+        """
+        # Normalize to get cache key
+        cache_key = kw_norm.normalize_cache_key(user_query)
+        
+        try:
+            # Check if cached response exists
+            if not self.redis_client.exists(cache_key):
+                logger.warning(f"Cache key not found: {cache_key}")
+                raise ValueError(f"No cached response found for this query")
+            
+            # Use pipeline to batch Redis operations
+            pipe = self.redis_client.pipeline()
+            
+            if is_like:
+                # Increment likes
+                pipe.incr(f"{cache_key}:likes")
+                pipe.get(f"{cache_key}:likes")
+                pipe.get(f"{cache_key}:dislikes")
+                results = pipe.execute()
+                
+                likes = int(results[1] or 0)
+                dislikes = int(results[2] or 0)
+                
+                logger.info(f"Like added for: {cache_key} (Likes: {likes}, Dislikes: {dislikes})")
+                
+                return {
+                    "action": "like_added",
+                    "likes": likes,
+                    "dislikes": dislikes,
+                    "cache_deleted": False
+                }
+            
+            else:
+                # Increment dislikes
+                pipe.incr(f"{cache_key}:dislikes")
+                pipe.get(f"{cache_key}:likes")
+                pipe.get(f"{cache_key}:dislikes")
+                results = pipe.execute()
+                
+                likes = int(results[1] or 0)
+                dislikes = int(results[2] or 0)
+                
+                # Delete cache if:
+                # 1. Dislikes >= 3 (absolute threshold)
+                # 2. OR dislikes > likes (majority negative)
+                should_delete = dislikes >= 3 or (dislikes > likes and dislikes >= 3)
+                
+                if should_delete:
+                    # Delete cache and counters
+                    pipe = self.redis_client.pipeline()
+                    pipe.delete(cache_key)
+                    pipe.delete(f"{cache_key}:likes")
+                    pipe.delete(f"{cache_key}:dislikes")
+                    pipe.execute()
+                    
+                    logger.warning(f"Cache deleted for: {cache_key} (Likes: {likes}, Dislikes: {dislikes})")
+                    
+                    return {
+                        "action": "cache_deleted",
+                        "reason": "Too many dislikes",
+                        "likes": likes,
+                        "dislikes": dislikes,
+                        "cache_deleted": True
+                    }
+                
+                else:
+                    logger.info(f"Dislike added for: {cache_key} (Likes: {likes}, Dislikes: {dislikes})")
+                    
+                    return {
+                        "action": "dislike_added",
+                        "likes": likes,
+                        "dislikes": dislikes,
+                        "cache_deleted": False
+                    }
+        
+        except redis.RedisError as e:
+            logger.error(f"Redis error in chat_react: {e}")
+            raise Exception("Failed to process reaction due to cache error")
+     
+    
     def _is_valid_response(self, response: Optional[str]) -> bool:
         """Check if response is valid and non-empty"""
         return bool(response and response.strip())
