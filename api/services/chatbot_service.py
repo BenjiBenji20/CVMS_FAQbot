@@ -1,11 +1,12 @@
 import asyncio
 import json
 import logging
-from typing import Optional
+from typing import List, Optional, Tuple
 import redis
 
 from api.config.settings import settings
 from api.scripts.chatbot import chatbot, llm_message_rephraser
+from api.utils.keywords_normalizer import kw_norm
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class ChatbotService:
         self.redis_client = redis.from_url(settings.get_redis_client_uri())
     
     
-    async def get_chat_response(self, message: str) -> str:
+    async def get_chat_response(self, message: str) -> Tuple[str, List[dict]]:
         """
         Get response from chatbot with retry logic
         
@@ -36,8 +37,11 @@ class ChatbotService:
         if not message or message.isspace():
             return self._get_empty_message_response(), []
         
+        # Transform short hands into complete words
+        message = kw_norm.normalize_message(message)
+        
         # Normalize message for cache key (case-insensitive, no punctuation)
-        cache_key = self._normalize_cache_key(message)
+        cache_key = kw_norm.normalize_cache_key(message)
         
         # checks if faqs as key value pair (quest and answer pair) exists in redis db
         # if exists, return it immediately, not let embeddings and augmentation process inside the script
@@ -113,16 +117,6 @@ class ChatbotService:
         raise Exception(
             f"Chatbot returned empty responses after {self.max_attempts} attempts"
         )
-    
-    
-    def _normalize_cache_key(self, message: str) -> str:
-        """
-        Normalize message for consistent caching
-        Removes punctuation, converts to lowercase
-        """
-        # Remove trailing punctuation and convert to lowercase
-        normalized = message.lower().strip().rstrip('?!.,;:')
-        return f"faq:{normalized}"  # Prefix for organization
     
     
     def _is_valid_response(self, response: Optional[str]) -> bool:
