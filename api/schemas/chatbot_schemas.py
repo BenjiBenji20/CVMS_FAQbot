@@ -42,3 +42,16 @@ class ChatResponse(BaseModel):
     created_at: datetime
     actions: List[ActionLink] = []
     
+    
+class ChatReactRequest(BaseModel):
+    user_query: str
+    is_like: bool
+
+    
+class ChatReactResponse(BaseModel):
+    action: str
+    likes: int
+    dislikes: int
+    cache_deleted: bool
+    reason: str = None
+    
