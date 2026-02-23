@@ -153,11 +153,11 @@ class KeywordsNormalizer:
         }
     
     
-    def normalize_string(self, message: str) -> str:
+    def remove_special_chars(self, message: str) -> str:
         """
         Removes punctuation, converts to lowercase
         """
-        return message.lower().strip().rstrip('?!.,;:_/')  # Prefix for organization
+        return message.lower().strip().rstrip('?!.,;:_/')
     
     
     def normalize_cache_key(self, message: str) -> str:
@@ -166,7 +166,7 @@ class KeywordsNormalizer:
         Removes punctuation, converts to lowercase
         """
         # Remove trailing punctuation and convert to lowercase
-        return f"faq:{self.normalize_string(message)}"
+        return f"faq:{self.remove_special_chars(message)}"
     
     
     def normalize_message(self, message: str) -> str:
@@ -174,7 +174,7 @@ class KeywordsNormalizer:
         Normalize keywords present in the string message
         hm -> how much, magkano -> how much...
         """
-        clean_str = self.normalize_string(message)
+        clean_str = self.remove_special_chars(message)
         normalized_mssg = ""
         for word in clean_str.split():
             normalized_mssg += self.keywords_glossary.get(word, word) + " "
