@@ -55,7 +55,8 @@ async def verify_request_key(request_secret_key: str = Header(None)):
 @limiter.limit("20/minute")
 async def chat_react(
     request: Request,
-    react_req: ChatReactRequest
+    react_req: ChatReactRequest,
+    _: None = Depends(verify_request_key)  # hash secret key dependency
 ):
     """
     Send react request (like or dislike) to the chat.
