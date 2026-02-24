@@ -18,6 +18,7 @@ class ChatbotService:
         self.max_attempts: int = 3
         self.retry_delay: float = 1.0
         self.redis_client = redis.from_url(settings.get_redis_client_uri())
+        self.CACHED_KEY_TTL = 604800  # 7 days in seconds
     
     
     async def get_chat_response(self, message: str) -> Tuple[str, List[dict]]:
@@ -90,7 +91,7 @@ class ChatbotService:
                             })
                             self.redis_client.setex(
                                 name=cache_key,
-                                time=604800,  # 7 days expiration
+                                time=self.CACHED_KEY_TTL,  # 7 days expiration
                                 value=cache_data
                             )
                             logger.info(f"Cached response for: {message}")
@@ -149,6 +150,7 @@ class ChatbotService:
             if is_like:
                 # Increment likes
                 pipe.incr(f"{cache_key}:likes")
+                pipe.expire(f"{cache_key}:likes", self.CACHED_KEY_TTL)
                 pipe.get(f"{cache_key}:likes")
                 pipe.get(f"{cache_key}:dislikes")
                 results = pipe.execute()
@@ -168,6 +170,7 @@ class ChatbotService:
             else:
                 # Increment dislikes
                 pipe.incr(f"{cache_key}:dislikes")
+                pipe.expire(f"{cache_key}:dislikes", self.CACHED_KEY_TTL)
                 pipe.get(f"{cache_key}:likes")
                 pipe.get(f"{cache_key}:dislikes")
                 results = pipe.execute()
