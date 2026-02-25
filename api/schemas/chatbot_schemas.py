@@ -1,9 +1,7 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
-
 import re
-from pydantic import BaseModel, Field, field_validator
 
 class ChatRequest(BaseModel):
     message: str = Field(
@@ -11,6 +9,8 @@ class ChatRequest(BaseModel):
         max_length=500,
         description="User's message"
     )
+    qa_id: Optional[str] = Field(default=None, description="Direct QA entry mapping")
+    action_id: Optional[str] = Field(default=None, description="Direct action entry mapping")
 
     honeypot: str = Field(default="", alias="website")
 
@@ -34,6 +34,12 @@ class ActionLink(BaseModel):
     title: str
     url: str
     button_text: str
+    
+    
+class MessageSuggestion(BaseModel):
+    text: str
+    qa_id: Optional[str] = None
+    action_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -41,6 +47,7 @@ class ChatResponse(BaseModel):
     message: str
     created_at: datetime
     actions: List[ActionLink] = []
+    message_suggestions: List[MessageSuggestion] = []
     
     
 class ChatReactRequest(BaseModel):

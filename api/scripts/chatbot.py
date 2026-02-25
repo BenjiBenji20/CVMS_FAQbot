@@ -7,6 +7,7 @@ from api.config.settings import settings
 from api.scripts.vector_store import vector_store
 from groq import Groq
 from langchain_core.documents import Document
+from typing import Optional
 
 # Initialize Groq client
 llm = Groq(api_key=settings.LLM_API_KEY)
@@ -107,7 +108,7 @@ def stream_response(messages: list[dict[str, str]], temperature: float = 0.5) ->
     return response
 
 
-def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
+def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict], Optional[str]]:
     """
     Build LLM prompt along with client's query and extracted knowledge 
     using the retriever.
@@ -116,8 +117,8 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
         message: User's question
         to_rephrase: Whether this is a rephrased attempt
     
-    Yields:
-        Tuple of (response_text, list of action dicts)
+    Returns:
+        Tuple of (response_text, list of action dicts, detected_qa_id)
     """
     # Retrieve relevant chunks
     docs = retriever.vectorstore.similarity_search_with_score(message, k=8)
@@ -145,7 +146,7 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
     
     # if already done rephrase and still doesn't have relevant scores, return fallback
     if to_rephrase and not is_high_quality:
-        return FALLBACK_MESSAGE, FALLBACK_ACTION
+        return FALLBACK_MESSAGE, FALLBACK_ACTION, None
     
     # Build knowledge base
     knowledge_docs: list[Document] = []
@@ -175,8 +176,11 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
             
     # Build QA context
     qa_context = ""
+    detected_qa_id = None
     if qa_docs:
         qa_context = "\n\nPRE-DEFINED Q&A:\n"
+        # Take the most relevant QA doc's ID
+        detected_qa_id = qa_docs[0].metadata.get("id")
         for qa_doc in qa_docs:
             qa_context += f"{qa_doc.page_content}\n"
     
@@ -247,7 +251,7 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
     llm_response_text = stream_response(messages)
     
     if llm_response_text.lower().strip() == FALLBACK_MESSAGE.lower():
-        return llm_response_text, FALLBACK_ACTION
+        return llm_response_text, FALLBACK_ACTION, None
     
     # Extract actions from:
     # 1. [LINK:id] markers in LLM response
@@ -257,7 +261,7 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
     # Remove [LINK:id] markers from response text
     clean_text = re.sub(r'\[LINK:[^\]]+\]', '', llm_response_text).strip()
     
-    return clean_text, actions
+    return clean_text, actions, detected_qa_id
 
 
 def extract_actions(llm_response_text: str, action_docs: list[Document], qa_docs: list[Document]) -> List[dict]:

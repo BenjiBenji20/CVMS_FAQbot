@@ -6,6 +6,7 @@ import redis
 
 from api.config.settings import settings
 from api.scripts.chatbot import chatbot, llm_message_rephraser
+from api.scripts.follow_up_message import follow_up_message
 from api.utils.keywords_normalizer import kw_norm
 
 logger = logging.getLogger(__name__)
@@ -21,61 +22,90 @@ class ChatbotService:
         self.CACHED_KEY_TTL = 604800  # 7 days in seconds
     
     
-    async def get_chat_response(self, message: str) -> Tuple[str, List[dict]]:
+    async def get_chat_response(
+        self, 
+        message: str, 
+        qa_id: Optional[str] = None, 
+        action_id: Optional[str] = None
+    ) -> Tuple[str, List[dict], List[dict]]:
         """
-        Get response from chatbot with retry logic
+        Get response from chatbot with retry logic. 
+        Supports deterministic flows for suggestions.
         
         Args:
-            message: User's question (already validated and stripped)
+            message: User's question
+            qa_id: Optional ID for direct QA entry mapping
+            action_id: Optional ID for direct action entry mapping
             
         Returns:
-            str: AI response
-            
-        Raises:
-            Exception: If all retry attempts fail
+            Tuple[str, List[dict], List[dict]]: (message, actions, message_suggestions)
         """
+        # Deterministic Flow Bypass
+        if qa_id or action_id:
+            logger.info(f"Deterministic flow triggered (qa_id={qa_id}, action_id={action_id})")
+            ai_response, actions, suggestions = await asyncio.to_thread(
+                follow_up_message.follow_up_message_orchestrator, qa_id, action_id
+            )
+            return ai_response, actions, suggestions
+
         # Handle edge case: empty message after strip
         if not message or message.isspace():
-            return self._get_empty_message_response(), []
+            return self._get_empty_message_response(), [], []
         
         # Transform short hands into complete words
         message = kw_norm.normalize_message(message)
         
-        # Normalize message for cache key (case-insensitive, no punctuation)
+        # Normalize message for cache key
         cache_key = kw_norm.normalize_cache_key(message)
         
-        # checks if faqs as key value pair (quest and answer pair) exists in redis db
-        # if exists, return it immediately, not let embeddings and augmentation process inside the script
+        # Redis Cache Check
         try:
             cached_data = self.redis_client.get(cache_key)
             if cached_data:
                 logger.info(f"Cache hit for: {message[:50]}...")
                 parsed = json.loads(cached_data)
-                return parsed['message'], parsed.get('actions', [])
+                return (
+                    parsed['message'], 
+                    parsed.get('actions', []), 
+                    parsed.get('message_suggestions', [])
+                )
         except redis.RedisError as e:
             logger.warning(f"Redis error during cache check: {e}. Proceeding without cache.")
         
-        # Retry logic
+        # Retry logic for RAG/LLM flow
         ai_response = ""
         actions = []
+        suggestions = []
         last_error = None
         
         for attempt in range(1, self.max_attempts + 1):
             try:
-                # Call chatbot function in thread (it's blocking)
-                ai_response, actions = await asyncio.to_thread(chatbot, message)
+                # Call chatbot function
+                ai_response, actions, detected_qa_id = await asyncio.to_thread(chatbot, message)
                 
-                # If fallback message exists in initial ai_response, rephrase
+                # If fallback message exists, rephrase
                 CORE_FALLBACK = "facebook messenger"
                 if CORE_FALLBACK in ai_response.lower() and not message.startswith("REPHRASED:"):
                     logger.info("LLM couldn't answer. Rephrasing query...")
                     rephrased_message = await asyncio.to_thread(llm_message_rephraser, message)
                     
-                    # request again with to_rephrase = True signaling that this is a second 
-                    # semantic search with rephrased message
-                    ai_response, actions = await asyncio.to_thread(
+                    ai_response, actions, detected_qa_id = await asyncio.to_thread(
                             chatbot, f"REPHRASE: {rephrased_message}", True
                         )
+
+                # Fetch follow-up suggestions if a QA intent was matched
+                if detected_qa_id:
+                    suggestions = await asyncio.to_thread(
+                            follow_up_message.suggest_follow_ups, 
+                            detected_qa_id
+                        )
+                
+                # If no suggestions yet (e.g. RAG flow), check for keyword triggers
+                if not suggestions:
+                    suggestions = await asyncio.to_thread(
+                        follow_up_message.get_suggestions_by_keywords,
+                        message
+                    )
 
                 # Validate response
                 if self._is_valid_response(ai_response):
@@ -83,22 +113,22 @@ class ChatbotService:
                     
                     # Don't cache fallback
                     if CORE_FALLBACK not in ai_response.lower():
-                        # store new response as value and message is the key
                         try:
                             cache_data = json.dumps({
                                 'message': ai_response,
-                                'actions': actions
+                                'actions': actions,
+                                'message_suggestions': suggestions
                             })
                             self.redis_client.setex(
                                 name=cache_key,
-                                time=self.CACHED_KEY_TTL,  # 7 days expiration
+                                time=self.CACHED_KEY_TTL,
                                 value=cache_data
                             )
                             logger.info(f"Cached response for: {message}")
                         except redis.RedisError as e:
                             logger.warning(f"Redis error during cache set: {e}")
                             
-                    return ai_response, actions
+                    return ai_response, actions, suggestions
                 
                 logger.warning(f"Empty response on attempt {attempt}/{self.max_attempts}")
                 
@@ -106,7 +136,6 @@ class ChatbotService:
                 last_error = e
                 logger.error(f"Attempt {attempt}/{self.max_attempts} failed: {str(e)}")
                 
-                # Don't retry on last attempt
                 if attempt < self.max_attempts:
                     await asyncio.sleep(self.retry_delay)
                 else:
@@ -114,7 +143,6 @@ class ChatbotService:
                         f"Failed to get response after {self.max_attempts} attempts"
                     ) from last_error
         
-        # If all attempts returned empty responses
         raise Exception(
             f"Chatbot returned empty responses after {self.max_attempts} attempts"
         )

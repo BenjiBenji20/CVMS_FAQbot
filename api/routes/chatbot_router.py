@@ -107,16 +107,24 @@ async def chat(
                 detail="Invalid request"
             )
         
-        ai_response, actions = await chatbot_service.get_chat_response(chat_request.message)
+        ai_response, actions, suggestions = await chatbot_service.get_chat_response(
+            message=chat_request.message,
+            qa_id=chat_request.qa_id,
+            action_id=chat_request.action_id
+        )
         
         # Convert to ActionLink objects
         action_links = [ActionLink(**action) for action in actions]
+        
+        # Convert to MessageSuggestion objects
+        message_suggestions = [MessageSuggestion(**sugg) for sugg in suggestions]
         
         return ChatResponse(
             role="assistant",
             message=ai_response,
             created_at=datetime.now(timezone.utc),
-            actions=action_links
+            actions=action_links,
+            message_suggestions=message_suggestions
         )
         
     except HTTPException:
