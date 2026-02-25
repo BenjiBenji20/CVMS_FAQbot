@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 import re
 import statistics
 from typing import List, Tuple
@@ -21,6 +23,27 @@ FALLBACK_MESSAGE = (
     "Thank you for asking, but I couldn't find this information in our official database. "
     "Please contact us in our Facebook Messenger or visit our office for further assistance."
 )
+
+# Load actions database for action_id lookup
+THIS_FILE_DIR = Path(__file__).parent
+DOCS_DIR = THIS_FILE_DIR.parent / "documents"
+
+def load_actions_database(actions_file_path="cvms-structured-data.json") -> dict:
+    """Load actions JSON into memory for quick lookup by action_id"""
+    actions_file = DOCS_DIR / actions_file_path
+    
+    if not actions_file.exists():
+        return {}
+    
+    with open(actions_file, 'r', encoding='utf-8') as f:
+        actions_list = json.load(f)
+    
+    # Create lookup dict: {action_id: action_data}
+    return {action['id']: action for action in actions_list}
+
+# Load actions database once at module level
+ACTIONS_DB = load_actions_database()
+
 
 def llm_message_rephraser(original_message: str) -> str:
     """
@@ -125,17 +148,20 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
         return FALLBACK_MESSAGE, FALLBACK_ACTION
     
     # Build knowledge base
-    knowledge_docs = []
-    action_docs = []
+    knowledge_docs: list[Document] = []
+    action_docs: list[Document] = []
+    qa_docs: list[Document] = []
     
     for doc in relevant_docs:
         if doc.metadata.get("type") == 'action':
             action_docs.append(doc)
+        elif doc.metadata.get("type") == 'qa':
+            qa_docs.append(doc)
         else:
             knowledge_docs.append(doc)
             
     # Limit actions to max 3
-    action_docs = action_docs[:3]
+    action_docs: list[Document] = action_docs[:3]
     
     # Build knowledge base
     knowledge = "\n\n".join([doc.page_content for doc in knowledge_docs])
@@ -146,6 +172,13 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
         actions_context = "\n\nYOU CAN VIEW THE PAGE HERE (mention if relevant)\n"
         for action_doc in action_docs:
             actions_context += f"{action_doc.page_content}\n"
+            
+    # Build QA context
+    qa_context = ""
+    if qa_docs:
+        qa_context = "\n\nPRE-DEFINED Q&A:\n"
+        for qa_doc in qa_docs:
+            qa_context += f"{qa_doc.page_content}\n"
     
     # Build messages for Groq
     messages = [
@@ -195,12 +228,15 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
                 "- Place the marker alone on a new line at the end.\n"
                 "- Do NOT add words before or after the marker.\n"
                 "- Maximum of 3 markers.\n"
+                "8. Q&A Priority:\n"
+                "- If a PRE-DEFINED Q&A matches the question, use that answer verbatim.\n"
             )
         }, {
             "role": "user",
             "content": (
                 "CONTEXT:\n"
                 f"{knowledge}\n\n"
+                f"{qa_context}"
                 f"{actions_context}\n"
                 "QUESTION:\n"
                 f"{message}"
@@ -208,27 +244,48 @@ def chatbot(message: str, to_rephrase: bool = False) -> Tuple[str, List[dict]]:
         }
     ]
     
-    response_text = stream_response(messages)
+    llm_response_text = stream_response(messages)
     
-    if response_text.lower().strip() == FALLBACK_MESSAGE.lower():
-        return response_text, FALLBACK_ACTION
+    if llm_response_text.lower().strip() == FALLBACK_MESSAGE.lower():
+        return llm_response_text, FALLBACK_ACTION
     
-    # Extract [LINK:id] markers and build actions list
-    actions = extract_link_markers(response_text, action_docs)
+    # Extract actions from:
+    # 1. [LINK:id] markers in LLM response
+    # 2. action_id from QA documents
+    actions = extract_actions(llm_response_text, action_docs, qa_docs)
     
     # Remove [LINK:id] markers from response text
-    clean_text = re.sub(r'\[LINK:[^\]]+\]', '', response_text).strip()
+    clean_text = re.sub(r'\[LINK:[^\]]+\]', '', llm_response_text).strip()
     
     return clean_text, actions
+
+
+def extract_actions(llm_response_text: str, action_docs: list[Document], qa_docs: list[Document]) -> List[dict]:
+    """
+    Extract actions from:
+    1. [LINK:id] markers in LLM response
+    2. action_id metadata from QA documents
     
+    Args:
+        llm_response_text: LLM response text
+        action_docs: Retrieved action documents
+        qa_docs: Retrieved QA documents
     
-def extract_link_markers(text: str, action_docs: list[Document]) -> List[dict]:
-    """Extract [LINK:id] markers and return action dicts"""
-    pattern = r'\[LINK:([^\]]+)\]'
-    found_ids = re.findall(pattern, text)
-    
+    Returns:
+        List of action dicts (max 3)
+    """
     actions = []
-    for link_id in found_ids[:3]:  # Max 3 links
+    seen_ids = set()
+    
+    # 1. Extract [LINK:id] markers from LLM response
+    pattern = r'\[LINK:([^\]]+)\]'
+    found_ids = re.findall(pattern, llm_response_text)
+    
+    for link_id in found_ids:
+        if link_id in seen_ids:
+            continue
+        
+        # Look in action_docs first
         for action_doc in action_docs:
             if action_doc.metadata.get('action_id') == link_id:
                 actions.append({
@@ -237,7 +294,37 @@ def extract_link_markers(text: str, action_docs: list[Document]) -> List[dict]:
                     'url': action_doc.metadata['url'],
                     'button_text': action_doc.metadata['button_text']
                 })
+                seen_ids.add(link_id)
                 break
+        else:
+            # Not in action_docs, try ACTIONS_DB
+            if link_id in ACTIONS_DB:
+                action = ACTIONS_DB[link_id]
+                actions.append({
+                    'id': action['id'],
+                    'title': action['title'],
+                    'url': action['url'],
+                    'button_text': action['button_text']
+                })
+                seen_ids.add(link_id)
     
-    return actions
-
+    # 2. Extract action_id from QA documents metadata
+    for qa_doc in qa_docs:
+        action_id = qa_doc.metadata.get('action_id')
+        
+        if not action_id or action_id in seen_ids:
+            continue
+        
+        # Hydrate action from ACTIONS_DB
+        if action_id in ACTIONS_DB:
+            action = ACTIONS_DB[action_id]
+            actions.append({
+                'id': action['id'],
+                'title': action['title'],
+                'url': action['url'],
+                'button_text': action['button_text']
+            })
+            seen_ids.add(action_id)
+    
+    # Return max 3 actions
+    return actions[:3]
