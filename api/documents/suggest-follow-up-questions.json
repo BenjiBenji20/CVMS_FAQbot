@@ -1,0 +1,279 @@
+{
+  "qa-general-pricing-hm": {
+    "tags": [
+      "how much",
+      "price",
+      "package",
+      "magkano",
+      "pricing",
+      "quote",
+      "quotation",
+      "service price"
+    ],
+    "suggestions": [
+      {
+        "text": "View our portfolio",
+        "action_id": "portfolio-main"
+      },
+      {
+        "text": "How do I book?",
+        "qa_id": "qa-booking-process"
+      },
+      {
+        "text": "Contact us",
+        "action_id": "contact-page"
+      }
+    ]
+  },
+  "qa-wedding-pricing-hm": {
+    "tags": [
+      "how much wedding",
+      "wedding price",
+      "wedding package",
+      "magkano wedding",
+      "wedding coverage",
+      "prenup",
+      "save the date"
+    ],
+    "suggestions": [
+      {
+        "text": "See wedding portfolio",
+        "action_id": "portfolio-page-wedding"
+      },
+      {
+        "text": "How to book for wedding?",
+        "qa_id": "qa-booking-process"
+      },
+      {
+        "text": "How much for prenup?",
+        "qa_id": "qa-prenup-pricing-hm"
+      }
+    ]
+  },
+  "qa-corporate-pricing-hm": {
+    "tags": [
+      "how much corporate",
+      "corporate event price",
+      "corporate package",
+      "magkano corporate",
+      "company event",
+      "brand event"
+    ],
+    "suggestions": [
+      {
+        "text": "View corporate portfolio",
+        "action_id": "portfolio-page-corporate"
+      },
+      {
+        "text": "How to book corporate event?",
+        "qa_id": "qa-booking-process"
+      },
+      {
+        "text": "Contact us",
+        "action_id": "contact-page"
+      }
+    ]
+  },
+  "qa-school-events-pricing-hm": {
+    "tags": [
+      "how much school event",
+      "school event price",
+      "js prom",
+      "graduation",
+      "school program",
+      "magkano school event"
+    ],
+    "suggestions": [
+      {
+        "text": "See school events gallery",
+        "action_id": "portfolio-page-school-events"
+      },
+      {
+        "text": "Ready to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-prenup-pricing-hm": {
+    "tags": [
+      "how much prenup",
+      "prenup price",
+      "prenuptial",
+      "save the date",
+      "magkano prenup",
+      "prenup shoot"
+    ],
+    "suggestions": [
+      {
+        "text": "View prenup portfolio",
+        "action_id": "portfolio-page-prenup"
+      },
+      {
+        "text": "How much for wedding?",
+        "qa_id": "qa-wedding-pricing-hm"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-debut-pricing-hm": {
+    "tags": [
+      "how much debut",
+      "debut price",
+      "18th birthday",
+      "debutante",
+      "magkano debut"
+    ],
+    "suggestions": [
+      {
+        "text": "View debut portfolio",
+        "action_id": "portfolio-page-debut"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-event-production-pricing-hm": {
+    "tags": [
+      "how much event production",
+      "event production price",
+      "full event",
+      "magkano event production",
+      "event coordination"
+    ],
+    "suggestions": [
+      {
+        "text": "See production portfolio",
+        "action_id": "portfolio-page-event-production"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-birthday-pricing-hm": {
+    "tags": [
+      "how much birthday",
+      "birthday price",
+      "birthday package",
+      "magkano birthday",
+      "kiddie party"
+    ],
+    "suggestions": [
+      {
+        "text": "View birthday portfolio",
+        "action_id": "portfolio-page-birthday"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-portrait-shoot-pricing-hm": {
+    "tags": [
+      "how much portrait",
+      "portrait shoot price",
+      "portrait photography",
+      "magkano portrait",
+      "family portrait"
+    ],
+    "suggestions": [
+      {
+        "text": "See portrait gallery",
+        "action_id": "portfolio-page-portrait-shoots"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-travel-photography-pricing-hm": {
+    "tags": [
+      "how much travel",
+      "travel photography price",
+      "travel shoot",
+      "magkano travel",
+      "destination shoot"
+    ],
+    "suggestions": [
+      {
+        "text": "View travel portfolio",
+        "action_id": "portfolio-page-travel-photography"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-product-photoshoot-pricing-hm": {
+    "tags": [
+      "how much product",
+      "product photoshoot price",
+      "commercial shoot",
+      "magkano product",
+      "product photography"
+    ],
+    "suggestions": [
+      {
+        "text": "See product gallery",
+        "action_id": "portfolio-page-product-photoshoot"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-video-pricing-hm": {
+    "tags": [
+      "how much video",
+      "video price",
+      "video reel",
+      "magkano video",
+      "cinematic video"
+    ],
+    "suggestions": [
+      {
+        "text": "Watch video reels",
+        "action_id": "portfolio-page-videos"
+      },
+      {
+        "text": "How to book?",
+        "qa_id": "qa-booking-process"
+      }
+    ]
+  },
+  "qa-booking-process": {
+    "tags": [
+      "how to book",
+      "booking process",
+      "reserve date",
+      "paano magbook",
+      "magpa-book",
+      "booking",
+      "quotation"
+    ],
+    "suggestions": [
+      {
+        "text": "Go to booking page",
+        "action_id": "booking-page"
+      },
+      {
+        "text": "View all services",
+        "action_id": "services-page"
+      },
+      {
+        "text": "Contact us",
+        "action_id": "contact-page"
+      }
+    ]
+  }
+}
