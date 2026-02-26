@@ -76,21 +76,91 @@ class FollowUpMessage:
         """
         return self.qa_file_data.get(qa_id)
 
-    
+
     def get_suggestions_by_keywords(self, message: str) -> list[dict]:
         """
-        Scan message for tags and return corresponding suggestions.
+        Score each entry by word overlap and return mixed suggestions
+        from multiple matching entries (max 3 total).
+        
+        Strategy:
+        - Find all entries with overlap > 0
+        - Sort by overlap score (descending)
+        - Take 1 suggestion from each top entry until we have 3 total
+        - Deduplicate by action_id/qa_id to avoid showing same button twice
         """
         message_lower = message.lower()
+        message_words = set(message_lower.split())
+        
+        # Collect all matches with their scores
+        matches = []
+        
         for qa_id, data in self.follow_up_questions_data.items():
             tags = data.get("tags", [])
+            
+            # Find highest overlap for this entry
+            max_overlap = 0
             for tag in tags:
-                if tag.lower() in message_lower:
-                    return data.get("suggestions", [])[:3]
-        return []
-
+                tag_words = set(tag.lower().split())
+                overlap = len(message_words & tag_words)
+                if overlap > max_overlap:
+                    max_overlap = overlap
+            
+            # Only include if there's actual overlap
+            if max_overlap > 0:
+                matches.append({
+                    'qa_id': qa_id,
+                    'data': data,
+                    'overlap': max_overlap
+                })
+                logger.info(f"Match: {qa_id} (overlap: {max_overlap})")
+        
+        if not matches:
+            return []
+        
+        # Sort by overlap score (highest first)
+        matches.sort(key=lambda x: x['overlap'], reverse=True)
+        
+        # Mix suggestions from top matches
+        mixed_suggestions = []
+        seen_ids = set()  # Track to avoid duplicates
+        suggestion_index = 0
+        max_suggestions = 3
+        
+        # Round-robin through matches
+        while len(mixed_suggestions) < max_suggestions and suggestion_index < 10:  # Safety limit
+            added_any = False
+            
+            for match in matches:
+                if len(mixed_suggestions) >= max_suggestions:
+                    break
+                
+                suggestions = match['data'].get('suggestions', [])
+                
+                # Get next suggestion from this entry
+                if suggestion_index < len(suggestions):
+                    suggestion = suggestions[suggestion_index]
+                    
+                    # Create unique ID for deduplication
+                    unique_id = suggestion.get('action_id') or suggestion.get('qa_id')
+                    
+                    if unique_id and unique_id not in seen_ids:
+                        mixed_suggestions.append(suggestion)
+                        seen_ids.add(unique_id)
+                        added_any = True
+                        logger.info(f"Added suggestion: {suggestion.get('text')} from {match['qa_id']}")
+            
+            if not added_any:
+                break  # No more suggestions to add
+            
+            suggestion_index += 1
+        
+        return mixed_suggestions
     
-    def follow_up_message_orchestrator(self, qa_id: str = None, action_id: str = None) -> tuple[str, list[dict], list[dict]]:
+    
+    def follow_up_message_orchestrator(
+        self, qa_id: str = None, 
+        action_id: str = None
+    ) -> tuple[str, list[dict], list[dict]]:
         """
         Orchestrate the response for follow-up message clicks.
         Bypasses LLM and returns deterministic response.
@@ -116,11 +186,8 @@ class FollowUpMessage:
             if action_id in self.action_data:
                 action = self.action_data[action_id]
                 actions.append(action)
-                message = f"You can view {action.get('title', 'this page')} here:"
-                # Optional: can add suggestions for action clicks if needed, but requirements say bypass LLM
-                # For action_id, we usually just return the button.
+                message = f"You can view {action.get('title', 'this page')} here 👇"
 
         return message, actions, suggestions
 
 follow_up_message = FollowUpMessage()
-    
