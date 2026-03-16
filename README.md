@@ -6,7 +6,7 @@
 [![Groq](https://img.shields.io/badge/Groq-F55036?style=for-the-badge&logo=ai&logoColor=white)](https://groq.com/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 
-A context-aware chatbot that automates FAQs for the CVMS website using Retrieval-Augmented Generation (RAG) architecture.
+Context-aware AI chatbot for public customer service that automates FAQs using document retrieval, guided buttons, and follow-up suggestions using Retrieval Augmented Generation (RAG) architecture.
 
 ## 📋 Table of Contents
 
@@ -29,7 +29,7 @@ A context-aware chatbot that automates FAQs for the CVMS website using Retrieval
 
 ## 🎯 Overview
 
-FAQBot is an intelligent chatbot system designed to automate customer service for the CVMS website by providing **24/7 instant, context-aware responses** to frequently asked questions. Built on a stateless architecture, the chatbot eliminates the need for user authentication while delivering accurate answers based on your documentation.
+FAQBot is an intelligent chatbot system designed to automate customer service for the website by providing **24/7 instant, context-aware responses** to frequently asked questions. Built on a stateless architecture, the chatbot eliminates the need for user authentication while delivering accurate answers based on your documentation.
 
 The system leverages **Retrieval-Augmented Generation (RAG)** to combine the power of large language models with your specific knowledge base, ensuring responses are grounded in your actual documentation rather than hallucinated information. This approach significantly reduces customer service workload while maintaining high-quality, accurate responses at any time of day.
 
@@ -289,7 +289,7 @@ import requests
 
 response = requests.post(
     "http://localhost:8000/api/chat-ai/chat",
-    json={"message": "What is CVMS?"}
+    json={"message": "What are the available products?"}
 )
 print(response.json())
 ```
